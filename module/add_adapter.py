@@ -75,6 +75,8 @@ class PaperClassifier(nn.Module):
         for name, param in self.model.named_parameters():
             if name == "transformer.wte.weight":
                 param.requires_grad_(True)
+            elif "lora" in name:
+                param.requires_grad_(True)
             else:
                 param.requires_grad = False
 

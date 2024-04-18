@@ -11,10 +11,10 @@ from transformers import AutoConfig,AutoModel,AutoTokenizer,AdamW,get_linear_sch
 from logger import logger
 
 def train(model,train_data_loader,valid_data_loader,test_data_loader):
-    epoch = 5
+    epoch = 10
     model = model.cuda()
-    targets_weight_list = ["context_layer.fc.weight",'trans_layer.fc.weight',"convs.0.weight","convs.1.weight","convs.2.weight"]
-    targets_bias_list = ["context_layer.fc.bias",'trans_layer.fc.bias',"convs.0.bias","convs.1.bias","convs.2.bias"]
+    targets_weight_list = ["context_layer.fc.weight",'markov.fc.weight','hc1.fc.weight','reduce_dim.fc.weight','gru.input_gate.weight','gru.update_gate.weight','gru.reset_gate.weight']
+    targets_bias_list = ["context_layer.fc.bias",'markov.fc.bias','hc1.fc.bias','reduce_dim.fc.bias','gru.input_gate.bias','gru.update_gate.bias','gru.reset_gate.bias']
     optimizer_grouped_parameters = [
         {
             "params": [
@@ -34,10 +34,7 @@ def train(model,train_data_loader,valid_data_loader,test_data_loader):
             "weight_decay": 0.0,
         },
     ]
-    # print(optimizer_grouped_parameters[0]["decay_parameters_module"])
-    # s = input("@@"*50)
-    # print(optimizer_grouped_parameters[1]["decay_parameters_module"])
-    # s = input("@@"*50)
+    
     optimizer = AdamW(optimizer_grouped_parameters,lr=5e-5,betas=[0.9,0.95],weight_decay=0.1,correct_bias=False)
 
     writer = SummaryWriter(log_dir="log"+'/'+time.strftime('%m-%d_%H.%M',time.localtime()))
@@ -81,7 +78,16 @@ def train(model,train_data_loader,valid_data_loader,test_data_loader):
             scheduler.step()
             optimizer.zero_grad()
             total_steps += 1
-            if total_steps % 100 == 0:
+            if total_steps % 10 == 0:
+                
+                # for name, param in model.named_parameters():
+                #     if name == "model.base_model.model.transformer.h.23.attn.c_proj.lora_B.default.weight":
+                #         print(f"name is {name}, \n param is {param}")
+                #         s = input()
+                #     if name == "context_layer.fc.weight" :
+                #         print(f"name is {name}, \n param is {param}")
+                #         s = input()
+
                 train_acc = correct_predictions.double()/6300
                 train_loss = np.mean(losses)
                 val_acc, val_loss = eval_model(

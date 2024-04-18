@@ -127,21 +127,7 @@ def main(verbose=True):
 
     # Print peft trainable params
     model.print_trainable_parameters()
-    if verbose:
-        # 遍历模型的所有模块和参数
-        for name, module in model.named_modules():
-            if hasattr(module, 'weight'):
-                # 参数存在且可训练（requires_grad=True）
-                if module.weight.requires_grad:
-                    logger.info(f"Module Name: {name}, Parameter is trainable.")
-                else:
-                    logger.info(f"Module Name: {name}, Parameter is not trainable.")
-
-        for name, param in model.named_parameters():
-            if param.requires_grad:
-                logger.info(f"Parameter Name: {name}, Updateable: True")
-            else:
-                logger.info(f"Parameter Name: {name}, Updateable: False")
+    
 
 
 
@@ -162,6 +148,22 @@ def main(verbose=True):
     test_dataloader = create_data_loader(data=df_test,tokenizer=tokenizer,max_len=512,batch_size=2)
 
     model = PaperClassifier(model=model,tokenizer=tokenizer,n_classes=7)
+    if verbose:
+        # 遍历模型的所有模块和参数
+        for name, module in model.named_modules():
+            if hasattr(module, 'weight'):
+                # 参数存在且可训练（requires_grad=True）
+                if module.weight.requires_grad:
+                    logger.info(f"Module Name: {name}, Parameter is trainable.")
+                else:
+                    logger.info(f"Module Name: {name}, Parameter is not trainable.")
+
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                logger.info(f"Parameter Name: {name}, Updateable: True")
+            else:
+                logger.info(f"Parameter Name: {name}, Updateable: False")
+        # s = input()
 
     train(model,train_dataloader,valid_dataloader,test_dataloader)
 
