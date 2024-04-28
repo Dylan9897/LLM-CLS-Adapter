@@ -123,16 +123,13 @@ def main(verbose=True):
             modules_to_save=modules_to_save  # This argument serves for adding new tokens.
         )
 
-    model = get_peft_model(model, lora_config)
-
+    # model = get_peft_model(model, lora_config)
     # Print peft trainable params
-    model.print_trainable_parameters()
+    # model.print_trainable_parameters()
     
 
-
-
     tokenizer = AutoTokenizer.from_pretrained(
-        'QwenBase',
+        model_args.model_name_or_path,
         pad_token='<|extra_0|>',
         eos_token='<|endoftext|>',
         padding_side='left',
@@ -148,7 +145,9 @@ def main(verbose=True):
     test_dataloader = create_data_loader(data=df_test,tokenizer=tokenizer,max_len=512,batch_size=2)
 
     model = PaperClassifier(model=model,tokenizer=tokenizer,n_classes=7)
+    
     if verbose:
+        
         # 遍历模型的所有模块和参数
         for name, module in model.named_modules():
             if hasattr(module, 'weight'):
@@ -164,6 +163,7 @@ def main(verbose=True):
             else:
                 logger.info(f"Parameter Name: {name}, Updateable: False")
         # s = input()
+        print("verbose")
 
     train(model,train_dataloader,valid_dataloader,test_dataloader)
 

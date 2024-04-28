@@ -10,30 +10,64 @@ from collections import defaultdict
 from transformers import AutoConfig,AutoModel,AutoTokenizer,AdamW,get_linear_schedule_with_warmup,logging
 from logger import logger
 
+def l2_regularized_loss(model, loss, l2_lambda=0.01):
+    """
+    计算带有L2正则化的损失
+    :param model: 模型实例
+    :param l2_lambda: L2正则化的强度因子，默认为0.01
+    :return: 加上L2正则化的总损失
+    """
+    
+    # # 计算L2正则化项，通常只对模型的权重进行正则化，不包括偏置
+    l2_reg = torch.tensor(0.).to(device=loss.device)
+    # # for param in model.parameters():
+    for name, param in model.named_parameters():
+        # 对大模型最后一层做正则化
+        if name == "model.lm_head.fc.weight":
+            # print('asdasdad')
+            l2_reg += torch.norm(param, p=2)
+    #     
+    #     if param.requires_grad:  # 只对可训练参数进行正则化
+    #         l2_reg += torch.norm(param, p=2)
+    
+    # 结合原始损失和正则化项
+    total_loss = loss + l2_lambda * l2_reg
+    return total_loss
+    
+
+
+
 def train(model,train_data_loader,valid_data_loader,test_data_loader):
-    epoch = 10
+    epoch = 5
+
     model = model.cuda()
-    targets_weight_list = ["context_layer.fc.weight",'markov.fc.weight','hc1.fc.weight','reduce_dim.fc.weight','gru.input_gate.weight','gru.update_gate.weight','gru.reset_gate.weight']
-    targets_bias_list = ["context_layer.fc.bias",'markov.fc.bias','hc1.fc.bias','reduce_dim.fc.bias','gru.input_gate.bias','gru.update_gate.bias','gru.reset_gate.bias']
+    targets_weight_list = ["model.lm_head.fc.weight","markov.fc.weight",'hc1.fc.weight',"gru.input_gate.fc.weight","gru.update_gate.fc.weight","gru.reset_gate.fc.weight","context_layer.fc.weight"]
+    targets_bias_list = ["gru.input_gate.bias","gru.update_gate.bias","gru.reset_gate.bias"]
     optimizer_grouped_parameters = [
         {
             "params": [
-                p for n, p in model.named_parameters() if n in targets_weight_list or ("lora" in n and "bias" not in n)
+                p for n, p in model.named_parameters() if n in targets_weight_list or ("lora" in n and "bias" not in n) or ("textcnn" in n and "bias" not in n)
             ],
             "decay_parameters_module": [
-                n for n, p in model.named_parameters() if n in targets_weight_list or ("lora" in n and "bias" not in n)
+                n for n, p in model.named_parameters() if n in targets_weight_list or ("lora" in n and "bias" not in n) or ("textcnn" in n and "bias" not in n)
             ],
         },
         {
             "params": [
-                p for n, p in model.named_parameters() if n in targets_bias_list or ("lora" in n and "weight" not in n)
+                p for n, p in model.named_parameters() if n in targets_bias_list or ("lora" in n and "weight" not in n) or ("textcnn" in n and "weight" not in n)
             ],
             "decay_parameters_module": [
-                n for n, p in model.named_parameters() if n in targets_bias_list or ("lora" in n and "weight" not in n)
+                n for n, p in model.named_parameters() if n in targets_bias_list or ("lora" in n and "weight" not in n) or ("textcnn" in n and "weight" not in n)
             ],
             "weight_decay": 0.0,
         },
     ]
+    
+    target_weight = [n for n, p in model.named_parameters() if n in targets_weight_list or ("lora" in n and "bias" not in n) or ("textcnn" in n and "bias" not in n)]
+    target_bias = [n for n, p in model.named_parameters() if n in targets_bias_list or ("lora" in n and "weight" not in n) or ("textcnn" in n and "weight" not in n)]
+    # print(target_weight)
+    # print(target_bias)
+    # s = input("push to exit ...")
     
     optimizer = AdamW(optimizer_grouped_parameters,lr=5e-5,betas=[0.9,0.95],weight_decay=0.1,correct_bias=False)
 
@@ -68,6 +102,7 @@ def train(model,train_data_loader,valid_data_loader,test_data_loader):
             )
             _,preds = torch.max(outputs,dim=1)
             loss = loss_fn(outputs,targets)
+            # loss = l2_regularized_loss(model,loss)
 
             correct_predictions += torch.sum(preds == targets)
             losses.append(loss.item())
@@ -78,7 +113,7 @@ def train(model,train_data_loader,valid_data_loader,test_data_loader):
             scheduler.step()
             optimizer.zero_grad()
             total_steps += 1
-            if total_steps % 10 == 0:
+            if total_steps % 100 == 0:
                 
                 # for name, param in model.named_parameters():
                 #     if name == "model.base_model.model.transformer.h.23.attn.c_proj.lora_B.default.weight":

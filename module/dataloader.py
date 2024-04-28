@@ -33,7 +33,10 @@ class ContentDataset(Dataset):
         """
         item 为数据索引，迭代取第item条数据
         """
+        prompt = "这是一个文本分类任务，阅读下列内容：{}，请判断当前内容的类别。"
         text = self.data.loc[item]["content"]
+        text = prompt.format(text)
+
         label = self.data.loc[item]["label"]
         example = self.tokenizer(text, padding='longest')
         
